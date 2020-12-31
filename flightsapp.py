@@ -13,27 +13,30 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
 
-# Import and clean data (importing csv into pandas)
+# Import and Cleanse Data
 flights = pd.read_csv('./assets/flights_departing_nyc.csv')
+
+# Convert values to DT
 flights.departure_date = pd.to_datetime(flights.departure_date)
 flights.arrival_date = pd.to_datetime(flights.arrival_date)
 flights.depart_time = pd.to_timedelta(flights.depart_time)
 flights.arrival_time = pd.to_timedelta(flights.arrival_time)
 
-# App layout
+# Main App Layout
 app.layout = html.Div(className='container', children=[
     html.Br(),
-
+    # App Header
     html.H1('Scraping Outbound NYC Tripadvisor Flights', style={'textAlign': 'center'}),
     html.Hr(),
-    html.H4(children=['Developed By ', html.A(children='Edwin Back', href='https://edwinback.vercel.app/', target='_blank'),
+    html.H4(children=['Developed By ',
+                      html.A(children='Edwin Back', href='https://edwinback.vercel.app/', target='_blank'),
                       ' | ', html.A(children='LinkedIn', href='https://linkedin.com/in/edwin-back/', target='_blank')]),
+
     html.H5('Data Extracted on January 26, 2020 (Pre-COVID19)'),
-
     html.Br(),
     html.Br(),
 
-    # Daily Flight Prices
+    # Average Daily Flight Prices
     html.H2("Average Daily NYC Flight Prices"),
     html.Hr(),
 
@@ -269,20 +272,6 @@ def update_monthly(slct_airport_monthly):
             size=14,
             color="#7f7f7f"
         ),
-        shapes=[
-            dict(
-                type="line",
-                x0='Feb',
-                y0=flights2.price.mean(),
-                x1='Dec',
-                y1=flights2.price.mean(),
-                name='Average',
-                line=dict(
-                    color="MediumPurple",
-                    width=3,
-                    dash="dash")
-            )
-        ],
         height=550,
         margin=dict(
             l=125,
