@@ -1,10 +1,12 @@
 import pandas as pd
-import plotly.graph_objects as go
+import numpy as np
+import scipy.stats as st
 
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
+import plotly.graph_objects as go
 
 # Styling
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -28,16 +30,20 @@ app.layout = html.Div(className='container', children=[
     # App Header
     html.H1('Scraping Outbound NYC Tripadvisor Flights', style={'textAlign': 'center'}),
     html.Hr(),
-    html.H4(children=['Developed By ',
-                      html.A(children='Edwin Back', href='https://edwinback.vercel.app/', target='_blank'),
-                      ' | ', html.A(children='LinkedIn', href='https://linkedin.com/in/edwin-back/', target='_blank')]),
+    html.Br(),
 
-    html.H5('Data Extracted on January 26, 2020 (Pre-COVID19)'),
-    html.Br(),
-    html.Br(),
+    html.Div(style={'textAlign': 'center', 'marginBottom': '5em'},
+             children=[html.H4(children=['Developed By ',
+                                         html.A(children='Edwin Back', href='https://edwinback.vercel.app/',
+                                                target='_blank'),
+                                         ' | ', html.A(children='LinkedIn', href='https://linkedin.com/in/edwin-back/',
+                                                       target='_blank')]),
+                       html.H5('Data Extracted on January 26, 2020 (Pre-COVID19)')]),
+
 
     # Average Daily Flight Prices
-    html.H2("Average Daily NYC Flight Prices"),
+    html.Hr(),
+    html.H2(children="Average Daily NYC Flight Prices", style={'textAlign': 'center'}),
     html.Hr(),
 
     html.H3("Select Destination(s)"),
@@ -53,16 +59,16 @@ app.layout = html.Div(className='container', children=[
                  style={'width': "75%"}
                  ),
     html.Br(),
-    html.Div(id='output_container_1', children=[]),
     html.Br(),
+
+    html.Div(id='output_container_1', children=[]),
+    html.Br(), html.Br(),
 
     dcc.Graph(id='daily_flight_prices', figure={}),
-    html.Br(),
-    html.Br(),
-    html.Br(),
 
-    # Monthly Flight Prices
-    html.H2("Average Monthly NYC Flight Prices"),
+    # Average Monthly Flight Prices
+    html.Hr(style={'marginTop': '6em'}),
+    html.H2(children="Average Monthly NYC Flight Prices", style={'textAlign': 'center'}),
     html.Hr(),
 
     html.H3("Select Destination(s)"),
@@ -84,9 +90,12 @@ app.layout = html.Div(className='container', children=[
 
     dcc.Graph(id='monthly_flight_prices', figure={}),
     html.Br(),
+    html.Br(),
+    html.Br(),
 
     # Flight Prices by Day of the Week
-    html.H2("Flight Price Distribution by Day of the Week"),
+    html.Hr(),
+    html.H2(children="Flight Price Distribution by Day of the Week", style={'textAlign': 'center'}),
     html.Hr(),
 
     html.H3("Select Destination(s)"),
@@ -127,9 +136,13 @@ app.layout = html.Div(className='container', children=[
 
     dcc.Graph(id='prices_dow', figure={}),
     html.Br(),
+    html.Br(),
+    html.Br(),
 
     # Flight Ratings by Day of the Week
-    html.H2("Flight Ratings Distribution by Day of the Week"),
+    html.Hr(),
+    html.H2(children="Flight Ratings Distribution by Day of the Week", style={'textAlign': 'center'}),
+    html.Hr(),
     html.H3("Select Destination(s)"),
     dcc.Dropdown(id="slct_airport_rating_dow",
                  options=[
@@ -170,18 +183,26 @@ app.layout = html.Div(className='container', children=[
 ])
 
 
-# Daily Flight Prices
+# Average Daily Flight Prices
 @app.callback(
     [Output(component_id='output_container_1', component_property='children'),
      Output(component_id='daily_flight_prices', component_property='figure')],
     [Input(component_id='slct_airport_daily', component_property='value')]
 )
+
 def update_daily(slct_airport_daily):
     flights1 = flights.copy()
     flights1 = flights1[flights1.destination.isin(slct_airport_daily)]
-    flights1 = flights1.groupby('departure_date').agg({'price': 'mean'}).reset_index()
 
-    container = "The following destinations are selected: {}".format(slct_airport_daily)
+    total_flights = len(flights1.index)
+
+    data = flights1["price"]
+    confidence_interval = st.t.interval(alpha=0.95, df=len(data)-1, loc=np.mean(data), scale=st.sem(data))
+    confidence_interval_r = (round(confidence_interval[0], 2), round(confidence_interval[1], 2))
+
+    container = "Total Number of Flights: {} | 95% Confidence Interval: {}".format(total_flights, confidence_interval_r)
+
+    flights1 = flights1.groupby('departure_date').agg({'price': 'mean'}).reset_index()
 
     fig1 = go.Figure(go.Scatter(x=flights1["departure_date"], y=round(flights1["price"], 2)))
 
@@ -249,12 +270,6 @@ def update_monthly(slct_airport_monthly):
 
     fig2.update_traces(marker_color=colors, opacity=0.6)
     fig2.update_layout(
-        title={
-            'text': "Average Monthly Flight Prices Departing NYC",
-            'y': 0.9,
-            'x': 0.5,
-            'xanchor': 'center',
-            'yanchor': 'top'},
         xaxis=dict(
             title="",
             categoryorder='array',
@@ -272,13 +287,13 @@ def update_monthly(slct_airport_monthly):
             size=14,
             color="#7f7f7f"
         ),
-        height=550,
+        height=500,
         margin=dict(
-            l=125,
-            r=125,
-            b=100,
-            t=100,
-            pad=4
+            l=25,
+            r=25,
+            b=30,
+            t=25,
+            pad=1
         )
     )
 
@@ -312,12 +327,6 @@ def update_price_dow(slct_airport_price_dow, slct_airline_prices):
     ))
 
     fig3 = fig3.update_layout(
-        title={
-            'text': "Price Distribution by Day of the Week",
-            'y': 0.9,
-            'x': 0.5,
-            'xanchor': 'center',
-            'yanchor': 'top'},
         xaxis=dict(
             title="",
             categoryorder='array',
@@ -335,13 +344,13 @@ def update_price_dow(slct_airport_price_dow, slct_airline_prices):
             size=14,
             color="#7f7f7f"
         ),
-        height=550,
+        height=500,
         margin=dict(
-            l=125,
-            r=125,
-            b=100,
-            t=100,
-            pad=4
+            l=25,
+            r=25,
+            b=30,
+            t=25,
+            pad=1
         )
     )
 
