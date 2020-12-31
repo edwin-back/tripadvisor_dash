@@ -7,6 +7,8 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 import plotly.graph_objects as go
+import plotly.express as px
+
 
 # Styling
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -23,6 +25,9 @@ flights.departure_date = pd.to_datetime(flights.departure_date)
 flights.arrival_date = pd.to_datetime(flights.arrival_date)
 flights.depart_time = pd.to_timedelta(flights.depart_time)
 flights.arrival_time = pd.to_timedelta(flights.arrival_time)
+
+all_destinations = flights.destination.unique()
+all_airlines = flights.airline.unique()
 
 # Main App Layout
 app.layout = html.Div(className='container', children=[
@@ -61,12 +66,15 @@ app.layout = html.Div(className='container', children=[
     html.Br(),
     html.Br(),
 
-    html.Div(id='output_container_1', children=[]),
-    html.Br(), html.Br(),
+    html.Div(id='output_container_1a', children=[]),
+    html.Br(),
+
+    html.Div(id='output_container_1b', children=[]),
+    html.Br(),
 
     dcc.Graph(id='daily_flight_prices', figure={}),
 
-    # Average Monthly Flight Prices
+    # Average MONTHLY Flight Prices
     html.Hr(style={'marginTop': '6em'}),
     html.H2(children="Average Monthly NYC Flight Prices", style={'textAlign': 'center'}),
     html.Hr(),
@@ -85,11 +93,17 @@ app.layout = html.Div(className='container', children=[
                  ),
 
     html.Br(),
-    html.Div(id='output_container_2', children=[]),
+
+    html.Div(id='output_container_2a', children=[]),
+    html.Br(),
+
+    html.Div(id='output_container_2b', children=[]),
+    html.Br(),
+
+    dcc.Graph(id='monthly_flight_prices_2a', figure={}),
     html.Br(),
 
     dcc.Graph(id='monthly_flight_prices', figure={}),
-    html.Br(),
     html.Br(),
     html.Br(),
 
@@ -185,7 +199,8 @@ app.layout = html.Div(className='container', children=[
 
 # Average Daily Flight Prices
 @app.callback(
-    [Output(component_id='output_container_1', component_property='children'),
+    [Output(component_id='output_container_1a', component_property='children'),
+     Output(component_id='output_container_1b', component_property='children'),
      Output(component_id='daily_flight_prices', component_property='figure')],
     [Input(component_id='slct_airport_daily', component_property='value')]
 )
@@ -200,7 +215,8 @@ def update_daily(slct_airport_daily):
     confidence_interval = st.t.interval(alpha=0.95, df=len(data)-1, loc=np.mean(data), scale=st.sem(data))
     confidence_interval_r = (round(confidence_interval[0], 2), round(confidence_interval[1], 2))
 
-    container = "Total Number of Flights: {} | 95% Confidence Interval: {}".format(total_flights, confidence_interval_r)
+    container1a = "Total Number of Flights: {}".format(total_flights)
+    container1b = "95% Confidence Interval: {}".format(confidence_interval_r)
 
     flights1 = flights1.groupby('departure_date').agg({'price': 'mean'}).reset_index()
 
@@ -238,45 +254,63 @@ def update_daily(slct_airport_daily):
         margin=dict(
             l=25,
             r=25,
-            b=30,
+            b=25,
             t=25,
-            pad=3
+            pad=1
         )
     )
 
-    return container, fig1
+    return container1a, container1b, fig1
 
-# Monthly Flight Prices
+# Average Monthly Flight Prices
 @app.callback(
-    [Output(component_id='output_container_2', component_property='children'),
-     Output(component_id='monthly_flight_prices', component_property='figure')],
+    [Output(component_id='output_container_2a', component_property='children'),
+     Output(component_id='output_container_2b', component_property='children'),
+     Output(component_id='monthly_flight_prices', component_property='figure'),
+     Output(component_id='monthly_flight_prices_2a', component_property='figure')],
     [Input(component_id='slct_airport_monthly', component_property='value')]
 )
+
 def update_monthly(slct_airport_monthly):
     flights2 = flights.copy()
     flights2 = flights2[flights2.destination.isin(slct_airport_monthly)]
-    flights2 = flights2[flights2.mo_name != 'Jan'].groupby('mo_name').agg({'price': 'mean'}).reset_index().sort_values('price')
 
-    container = "The following destinations are selected: {}".format(slct_airport_monthly)
+    total_flights = len(flights2.index)
+
+    data = flights2["price"]
+    confidence_interval = st.t.interval(alpha=0.95, df=len(data) - 1, loc=np.mean(data), scale=st.sem(data))
+    confidence_interval_r = (round(confidence_interval[0], 2), round(confidence_interval[1], 2))
+
+    standev = st.tstd(data)
+
+    container2a = "Total Flights Available: {}".format(total_flights)
+    container2b = "95% Confidence Interval: {}".format(confidence_interval_r)
+
+    # blue bars
     colors = ['rgb(26, 118, 255)'] * 11
+    # convert smallest value to green
     colors[0] = 'LightGreen'
+    # convert largest value to red
     colors[-1] = 'Crimson'
 
-    fig2 = go.Figure(
-        go.Bar(x=flights2["mo_name"],
-               y=round(flights2["price"], 2)
+    # Bar chart
+    flights2a = flights2[flights2.mo_name != 'Jan'].groupby('mo_name').agg({'price': 'mean'}).reset_index().sort_values('price')
+
+    fig2a = go.Figure(
+        go.Bar(x=flights2a["mo_name"],
+               y=round(flights2a["price"], 2)
                )
     )
 
-    fig2.update_traces(marker_color=colors, opacity=0.6)
-    fig2.update_layout(
+    fig2a.update_traces(marker_color=colors, opacity=0.6)
+    fig2a.update_layout(
         xaxis=dict(
             title="",
             categoryorder='array',
             categoryarray=['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
         ),
         yaxis=dict(
-            title="Average Monthly Price (USD)",
+            title="Average Price Per Flight ($USD)",
             tickmode='linear',
             tick0=0,
             dtick=25,
@@ -291,13 +325,52 @@ def update_monthly(slct_airport_monthly):
         margin=dict(
             l=25,
             r=25,
-            b=30,
+            b=25,
             t=25,
             pad=1
         )
     )
 
-    return container, fig2
+    # Scatter plot
+    flights2b = flights2[flights2.mo_name != 'Jan'].groupby(['destination', 'mo_name', 'month']).agg({'price': 'mean'}).reset_index().sort_values('month')
+
+    fig2b = px.line(flights2b,
+                    x=flights2b["mo_name"],
+                    y=round(flights2b["price"], 2),
+                    color='destination'
+    )
+
+    fig2b.update_traces(mode = 'markers+lines')
+
+    fig2b.update_layout(
+        xaxis=dict(
+            title="",
+            categoryorder='array',
+            categoryarray=['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        ),
+        yaxis=dict(
+            title="Average Price Per Flight ($USD)",
+            tickmode='linear',
+            tick0=0,
+            dtick=25,
+            tickprefix='$'
+        ),
+        font=dict(
+            family="Verdana, monospace",
+            size=14,
+            color="#7f7f7f"
+        ),
+        height=500,
+        margin=dict(
+            l=25,
+            r=25,
+            b=25,
+            t=25,
+            pad=1
+        )
+    )
+
+    return container2a, container2b, fig2a, fig2b
 
 # Flight Prices by Day of the Week
 @app.callback(
@@ -307,6 +380,7 @@ def update_monthly(slct_airport_monthly):
     [Input(component_id='slct_airport_price_dow', component_property='value'),
      Input(component_id='slct_airline_prices', component_property='value')]
 )
+
 def update_price_dow(slct_airport_price_dow, slct_airline_prices):
     flights3 = flights.copy()
     flights3 = flights3[flights3.price <= 500]
@@ -348,7 +422,7 @@ def update_price_dow(slct_airport_price_dow, slct_airline_prices):
         margin=dict(
             l=25,
             r=25,
-            b=30,
+            b=25,
             t=25,
             pad=1
         )
@@ -384,12 +458,6 @@ def update_rating_dow(slct_airport_rating_dow, slct_airline_ratings):
     ))
 
     fig4 = fig4.update_layout(
-        title={
-            'text': "Rating Distribution by Day of the Week",
-            'y': 0.9,
-            'x': 0.5,
-            'xanchor': 'center',
-            'yanchor': 'top'},
         xaxis=dict(
             title="",
             categoryorder='array',
@@ -406,13 +474,13 @@ def update_rating_dow(slct_airport_rating_dow, slct_airline_ratings):
             size=14,
             color="#7f7f7f"
         ),
-        height=550,
+        height=500,
         margin=dict(
-            l=125,
-            r=125,
-            b=100,
-            t=100,
-            pad=4
+            l=25,
+            r=25,
+            b=25,
+            t=25,
+            pad=1
         )
     )
 
